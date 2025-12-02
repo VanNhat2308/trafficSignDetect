@@ -15,6 +15,7 @@ const MODEL_CONFIG = {
   imgsz_type: "dynamic",
   classes: classes,
 };
+const apiKey = 'H80w0Hv4edAPqOi1J8clYXrVQEHzIvOS'
 
 // Settings Components
 function SettingsPanel({
@@ -466,18 +467,14 @@ function ModelStatus({ warnUpTime, inferenceTime, statusMsg, statusColor }) {
   );
 }
 function ResultsTable({ details, currentClasses }) {
-    const lastSpokenRef = useRef("");
+   const lastSpokenRef = useRef("");
 
   useEffect(() => {
     if (details.length === 0) return;
 
-    // Ngăn TTS chồng lên nhau
-    speechSynthesis.cancel();
-
-    // 1) Gắn thêm name + category + priority từ class.json
+    // 1) Enrich details với name, priority, category
     const enriched = details.map(item => {
       const info = classes_tts.find(c => c.id === item.class_idx);
-
       return {
         ...item,
         name: info?.name || `Biển ${item.class_idx}`,
@@ -486,35 +483,52 @@ function ResultsTable({ details, currentClasses }) {
       };
     });
 
-    // 2) Sắp xếp theo độ ưu tiên giảm dần
+    // 2) Sắp xếp giảm dần theo priority
     enriched.sort((a, b) => b.priority - a.priority);
 
     // 3) Lấy tối đa 3 biển quan trọng nhất
     const top = enriched.slice(0, 3);
-
     const names = top.map(x => x.name).join(", ");
 
-    // 4) Chống đọc lặp lại
+    // 4) Ngăn đọc lặp
     if (names === lastSpokenRef.current) return;
     lastSpokenRef.current = names;
 
-    // 5) Câu để đọc
+    // 5) Tạo câu đọc
     const text =
       top.length === 1
         ? `Phía trước có biển ${top[0].name}.`
         : `Phía trước có ${top.length} biển báo quan trọng: ${names}.`;
 
-    // 6) TTS tiếng Việt
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = "vi-VN";
-    utter.rate = 1;
-    utter.pitch = 1;
-    utter.volume = 1;
+    // 6) Gọi FPT TTS API async
+    const fetchAndPlay = async () => {
+      try {
+        const res = await fetch("https://api.fpt.ai/hmi/tts/v5", {
+          method: "POST",
+          headers: {
+            "api-key": apiKey,
+            "speed": "1",
+            "voice": "minhquang",
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: text,
+        });
+        const data = await res.json();
 
-    speechSynthesis.speak(utter);
+        if (data.error === 0 && data.async) {
+          // Phát audio từ link async
+          const audio = new Audio(data.async);
+          audio.play();
+        } else {
+          console.error("FPT TTS error:", data.message);
+        }
+      } catch (err) {
+        console.error("FPT TTS fetch error:", err);
+      }
+    };
 
+    fetchAndPlay();
   }, [details]);
-
   return (
  <div className="container bg-gray-800 rounded-xl shadow-lg p-4 sm:p-5 mb-4 sm:mb-6">
 
