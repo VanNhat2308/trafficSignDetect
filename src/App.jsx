@@ -4,7 +4,7 @@ import { model_loader } from "./utils/model_loader";
 import { inference_pipeline } from "./utils/inference_pipeline";
 import { render_overlay } from "./utils/render_overlay";
 import classes from "./utils/classes_v1.json";
-
+import classes_tts from "./utils/classes_tts.json";
 const MODEL_CONFIG = {
   input_shape: [1, 3, 640, 640],
   iou_threshold: 0.35,
@@ -466,6 +466,55 @@ function ModelStatus({ warnUpTime, inferenceTime, statusMsg, statusColor }) {
   );
 }
 function ResultsTable({ details, currentClasses }) {
+    const lastSpokenRef = useRef("");
+
+  useEffect(() => {
+    if (details.length === 0) return;
+
+    // Ngăn TTS chồng lên nhau
+    speechSynthesis.cancel();
+
+    // 1) Gắn thêm name + category + priority từ class.json
+    const enriched = details.map(item => {
+      const info = classes_tts.find(c => c.id === item.class_idx);
+
+      return {
+        ...item,
+        name: info?.name || `Biển ${item.class_idx}`,
+        priority: info?.priority || 1,
+        category: info?.category || "khác"
+      };
+    });
+
+    // 2) Sắp xếp theo độ ưu tiên giảm dần
+    enriched.sort((a, b) => b.priority - a.priority);
+
+    // 3) Lấy tối đa 3 biển quan trọng nhất
+    const top = enriched.slice(0, 3);
+
+    const names = top.map(x => x.name).join(", ");
+
+    // 4) Chống đọc lặp lại
+    if (names === lastSpokenRef.current) return;
+    lastSpokenRef.current = names;
+
+    // 5) Câu để đọc
+    const text =
+      top.length === 1
+        ? `Phía trước có biển ${top[0].name}.`
+        : `Phía trước có ${top.length} biển báo quan trọng: ${names}.`;
+
+    // 6) TTS tiếng Việt
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = "vi-VN";
+    utter.rate = 1;
+    utter.pitch = 1;
+    utter.volume = 1;
+
+    speechSynthesis.speak(utter);
+
+  }, [details]);
+
   return (
  <div className="container bg-gray-800 rounded-xl shadow-lg p-4 sm:p-5 mb-4 sm:mb-6">
 
