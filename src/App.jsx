@@ -15,7 +15,7 @@ const MODEL_CONFIG = {
   imgsz_type: "dynamic",
   classes: classes,
 };
-const apiKey = 'H80w0Hv4edAPqOi1J8clYXrVQEHzIvOS'
+
 
 // Settings Components
 function SettingsPanel({
