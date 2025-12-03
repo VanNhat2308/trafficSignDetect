@@ -466,69 +466,46 @@ function ModelStatus({ warnUpTime, inferenceTime, statusMsg, statusColor }) {
     </div>
   );
 }
-function ResultsTable({ details, currentClasses }) {
-   const lastSpokenRef = useRef("");
+function ResultsTable({ details, currentClasses, activeFeature }) {
+const lastPlayedRef = useRef(null);
+  const blockRef = useRef(false);
 
-  useEffect(() => {
-    if (details.length === 0) return;
+useEffect(() => {
+  if (details.length === 0) return;
 
-    // 1) Enrich details với name, priority, category
-    const enriched = details.map(item => {
-      const info = classes_tts.find(c => c.id === item.class_idx);
-      return {
-        ...item,
-        name: info?.name || `Biển ${item.class_idx}`,
-        priority: info?.priority || 1,
-        category: info?.category || "khác"
-      };
-    });
-
-    // 2) Sắp xếp giảm dần theo priority
-    enriched.sort((a, b) => b.priority - a.priority);
-
-    // 3) Lấy tối đa 3 biển quan trọng nhất
-    const top = enriched.slice(0, 3);
-    const names = top.map(x => x.name).join(", ");
-
-    // 4) Ngăn đọc lặp
-    if (names === lastSpokenRef.current) return;
-    lastSpokenRef.current = names;
-
-    // 5) Tạo câu đọc
-    const text =
-      top.length === 1
-        ? `Phía trước có biển ${top[0].name}.`
-        : `Phía trước có ${top.length} biển báo quan trọng: ${names}.`;
-
-    // 6) Gọi FPT TTS API async
-    const fetchAndPlay = async () => {
-      try {
-        const res = await fetch("https://api.fpt.ai/hmi/tts/v5", {
-          method: "POST",
-          headers: {
-            "api-key": apiKey,
-            "speed": "1",
-            "voice": "minhquang",
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: text,
-        });
-        const data = await res.json();
-
-        if (data.error === 0 && data.async) {
-          // Phát audio từ link async
-          const audio = new Audio(data.async);
-          audio.play();
-        } else {
-          console.error("FPT TTS error:", data.message);
-        }
-      } catch (err) {
-        console.error("FPT TTS fetch error:", err);
-      }
+  const enriched = details.map(item => {
+    const info = classes_tts.find(c => c.id === item.class_idx);
+    return {
+      ...item,
+      priority: info?.priority || 1,
     };
+  });
 
-    fetchAndPlay();
-  }, [details]);
+  enriched.sort((a, b) => b.priority - a.priority);
+  const top = enriched[0];
+  const id = top.class_idx;
+
+  if (activeFeature === "image") {
+    // Image: luôn đọc mỗi lần mở/đổi ảnh
+    lastPlayedRef.current = null;
+    const audio = new Audio(`http://localhost:5173/yolo-object-detection-onnxruntime-web/tts_mp3/${id}.mp3`);
+    audio.play();
+  } else if (activeFeature === "camera" || activeFeature === "video") {
+    // Camera/Video: đọc nếu khác biển vừa đọc và không block
+    if (blockRef.current || lastPlayedRef.current === id) return;
+
+    lastPlayedRef.current = id;
+
+    const audio = new Audio(`http://localhost:5173/yolo-object-detection-onnxruntime-web/tts_mp3/${id}.mp3`);
+    audio.play();
+
+    blockRef.current = true;
+    setTimeout(() => (blockRef.current = false), 2000); // block 2s
+  }
+
+}, [details, activeFeature]);
+
+
   return (
  <div className="container bg-gray-800 rounded-xl shadow-lg p-4 sm:p-5 mb-4 sm:mb-6">
 
@@ -1107,6 +1084,7 @@ function App() {
       <ResultsTable
         details={details}
         currentClasses={modelConfigRef.current.classes.classes}
+        activeFeature={activeFeature}
       />
     </div>
   );
