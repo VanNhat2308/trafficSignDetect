@@ -488,7 +488,7 @@ useEffect(() => {
   if (activeFeature === "image") {
     // Image: luôn đọc mỗi lần mở/đổi ảnh
     lastPlayedRef.current = null;
-    const audio = new Audio(`http://localhost:5173/yolo-object-detection-onnxruntime-web/tts_mp3/${id}.mp3`);
+    const audio = new Audio(`http://traffic-sign-detect.vercel.app/tts_mp3/${id}.mp3`);
     audio.play();
   } else if (activeFeature === "camera" || activeFeature === "video") {
     // Camera/Video: đọc nếu khác biển vừa đọc và không block
@@ -496,7 +496,7 @@ useEffect(() => {
 
     lastPlayedRef.current = id;
 
-    const audio = new Audio(`http://localhost:5173/yolo-object-detection-onnxruntime-web/tts_mp3/${id}.mp3`);
+    const audio = new Audio(`http://traffic-sign-detect.vercel.app/tts_mp3/${id}.mp3`);
     audio.play();
 
     blockRef.current = true;
